@@ -37,18 +37,17 @@ app.post('/api/pagar-rede', async (req, res) => {
             anoStr = '20' + anoStr; 
         }
 
+        // Payload estruturado na RAIZ conforme a exigência da API v1 da e.Rede
         const payloadRede = {
             capture: true,
             amount: Math.round(amount * 100),
             installments: 1,
             reference: 'MC-' + Date.now(),
-            card: {
-                cardNumber: cardNumber.replace(/\s+/g, ''),
-                expirationMonth: parseInt(mesStr, 10),
-                expirationYear: parseInt(anoStr, 10),
-                securityCode: String(cardCvv).trim(),
-                cardHolderName: String(cardHolderName).trim()
-            }
+            cardNumber: cardNumber.replace(/\s+/g, ''),
+            expirationMonth: parseInt(mesStr, 10),
+            expirationYear: parseInt(anoStr, 10),
+            securityCode: String(cardCvv).trim(),
+            cardHolderName: String(cardHolderName).trim()
         };
 
         const response = await fetch('https://api.userede.com.br/erede/v1/transactions', {
