@@ -29,13 +29,12 @@ app.post('/api/pagar-rede', async (req, res) => {
     }
 
     try {
-        // Limpa a validade e separa estritamente o mês e o ano
-        const validadeLimpa = cardExpiration.replace(/\D/g, ''); // Mantém apenas números (ex: "1228")
-        const mes = validadeLimpa.substring(0, 2);               // Primeiros 2 dígitos ("12")
-        let ano = validadeLimpa.substring(2, 4);                 // Últimos 2 dígitos ("28")
+        const validadeLimpa = cardExpiration.replace(/\D/g, ''); 
+        const mesStr = validadeLimpa.substring(0, 2);               
+        let anoStr = validadeLimpa.substring(2, 4);                 
         
-        if (ano.length === 2) {
-            ano = '20' + ano; // Transforma em 4 dígitos ("2028")
+        if (anoStr.length === 2) {
+            anoStr = '20' + anoStr; 
         }
 
         const payloadRede = {
@@ -45,9 +44,9 @@ app.post('/api/pagar-rede', async (req, res) => {
             reference: 'MC-' + Date.now(),
             card: {
                 number: cardNumber.replace(/\s+/g, ''),
-                expirationMonth: String(mes),
-                expirationYear: String(ano),
-                securityCode: String(cardCvv),
+                expirationMonth: parseInt(mesStr, 10), // Exigido como número inteiro pela e.Rede
+                expirationYear: parseInt(anoStr, 10),   // Exigido como número inteiro pela e.Rede
+                securityCode: String(cardCvv).trim(),
                 holderName: String(cardHolderName).trim()
             }
         };
