@@ -29,25 +29,26 @@ app.post('/api/pagar-rede', async (req, res) => {
     }
 
     try {
-        const partesValidade = cardExpiration.split('/');
-        const mes = partesValidade[0] ? partesValidade[0].trim() : '';
-        let ano = partesValidade[1] ? partesValidade[1].trim() : '';
+        // Limpa a validade e separa estritamente o mês e o ano
+        const validadeLimpa = cardExpiration.replace(/\D/g, ''); // Mantém apenas números (ex: "1228")
+        const mes = validadeLimpa.substring(0, 2);               // Primeiros 2 dígitos ("12")
+        let ano = validadeLimpa.substring(2, 4);                 // Últimos 2 dígitos ("28")
         
         if (ano.length === 2) {
-            ano = '20' + ano;
+            ano = '20' + ano; // Transforma em 4 dígitos ("2028")
         }
 
         const payloadRede = {
             capture: true,
             amount: Math.round(amount * 100),
             installments: 1,
-            reference: 'MC-' + Date.now(), // Referência única exigida pela Rede
+            reference: 'MC-' + Date.now(),
             card: {
                 number: cardNumber.replace(/\s+/g, ''),
-                expirationMonth: mes,
-                expirationYear: ano,
-                securityCode: cardCvv,
-                holderName: cardHolderName
+                expirationMonth: String(mes),
+                expirationYear: String(ano),
+                securityCode: String(cardCvv),
+                holderName: String(cardHolderName).trim()
             }
         };
 
