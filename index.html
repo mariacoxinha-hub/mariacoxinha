@@ -257,16 +257,21 @@
                 </div>
             </div>
 
-            <!-- AGENDAMENTO SEPARADO (DATA E HORA) -->
-            <div id="schedule-container" style="display: none;" class="mt-3 grid grid-cols-2 gap-2">
-                <div>
-                    <label class="block font-bold text-gray-700 mb-1 text-xs sm:text-sm">Data do Agendamento:</label>
-                    <input type="date" id="schedule-date" onchange="salvarDadosFormulario()" class="w-full p-3 border rounded-lg bg-gray-50 outline-none focus:ring-2 focus:ring-primary text-sm">
+            <!-- AGENDAMENTO SEPARADO (DATA E HORA) COM REGRAS DE DIAS/HORÁRIOS -->
+            <div id="schedule-container" style="display: none;" class="mt-3 space-y-2">
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-bold text-gray-700 mb-1 text-xs sm:text-sm">Data do Agendamento:</label>
+                        <input type="date" id="schedule-data" onchange="validarDataAgendamento(this)" class="w-full p-3 border rounded-lg bg-gray-50 outline-none focus:ring-2 focus:ring-primary text-sm">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-gray-700 mb-1 text-xs sm:text-sm">Horário:</label>
+                        <input type="time" id="schedule-time" onchange="validarHoraAgendamento(this)" class="w-full p-3 border rounded-lg bg-gray-50 outline-none focus:ring-2 focus:ring-primary text-sm">
+                    </div>
                 </div>
-                <div>
-                    <label class="block font-bold text-gray-700 mb-1 text-xs sm:text-sm">Horário:</label>
-                    <input type="time" id="schedule-time" onchange="salvarDadosFormulario()" class="w-full p-3 border rounded-lg bg-gray-50 outline-none focus:ring-2 focus:ring-primary text-sm">
-                </div>
+                <p id="schedule-aviso-regras" class="text-[11px] text-amber-700 font-semibold bg-amber-50 p-2 rounded border border-amber-200">
+                    ℹ️ Horários de agendamento: Seg a Sex das 8:30 às 18:00 | Sáb das 9:30 às 16:30 (Domingos e feriados fechados).
+                </p>
             </div>
 
             <!-- ENDEREÇO VIA CEP -->
@@ -422,6 +427,94 @@
         }
     }
 
+    // VALIDAÇÃO DE DIAS DE AGENDAMENTO (DOMINGOS E FERIADOS NACIONAIS)
+    function verificarDiaUtilAgendamento(dataStr) {
+        if (!dataStr) return true;
+        const partes = dataStr.split('-');
+        if (partes.length !== 3) return true;
+        
+        const ano = parseInt(partes[0]);
+        const mes = parseInt(partes[1]) - 1;
+        const dia = parseInt(partes[2]);
+        
+        const dataObj = new Date(ano, mes, dia);
+        const diaSemana = dataObj.getDay(); // 0 = Domingo, 6 = Sábado
+
+        // Bloquear Domingo
+        if (diaSemana === 0) {
+            showToast("Não abrimos aos domingos. Escolha outro dia.");
+            return false;
+        }
+
+        // Feriados Nacionais Fixos e Móveis aproximados para o ano selecionado
+        const feriadosFixos = [
+            `01-01`, // Confraternização Universal
+            `21-04`, // Tiradentes
+            `01-05`, // Dia do Trabalho
+            `07-09`, // Independência do Brasil
+            `12-10`, // Nossa Senhora Aparecida
+            `02-11`, // Finados
+            `15-11`, // Proclamação da República
+            `25-12`  // Natal
+        ];
+
+        const mesDiaStr = String(mes + 1).padStart(2, '0') + '-' + String(dia).padStart(2, '0');
+        if (feriadosFixos.includes(mesDiaStr)) {
+            showToast("Não abrimos em feriados. Escolha outro dia.");
+            return false;
+        }
+
+        return true;
+    }
+
+    function validarDataAgendamento(input) {
+        if (!verificarDiaUtilAgendamento(input.value)) {
+            input.value = '';
+            return;
+        }
+        salvarDadosFormulario();
+    }
+
+    function validarHoraAgendamento(input) {
+        const dataInput = document.getElementById('schedule-data').value;
+        if (!dataInput) {
+            showToast("Selecione primeiro a data do agendamento.");
+            input.value = '';
+            return;
+        }
+
+        const partes = dataInput.split('-');
+        const dataObj = new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]));
+        const diaSemana = dataObj.getDay(); // 6 = Sábado, 1 a 5 = Seg a Sex
+
+        const horaStr = input.value;
+        if (!horaStr) return;
+
+        const [h, m] = horaStr.split(':').map(Number);
+        const minutosTotais = h * 60 + m;
+
+        // Seg a Sex: 8:30 (510 min) até 18:00 (1080 min)
+        // Sábado: 9:30 (570 min) até 16:30 (990 min)
+        let permitido = false;
+        if (diaSemana >= 1 && diaSemana <= 5) {
+            if (minutosTotais >= 510 && minutosTotais <= 1080) permitido = true;
+        } else if (diaSemana === 6) {
+            if (minutosTotais >= 570 && minutosTotais <= 990) permitido = true;
+        }
+
+        if (!permitido) {
+            if (diaSemana === 6) {
+                showToast("Aos sábados atendemos das 9:30 às 16:30.");
+            } else {
+                showToast("De segunda a sexta atendemos das 8:30 às 18:00.");
+            }
+            input.value = '';
+            return;
+        }
+
+        salvarDadosFormulario();
+    }
+
     function buscarCep(cep) {
         let cepLimpo = cep.replace(/\D/g, '');
         if (cepLimpo.length !== 8) {
@@ -508,7 +601,7 @@
             }
         }
 
-        if (localStorage.getItem('maria_coxinha_schedule_date')) document.getElementById('schedule-date').value = localStorage.getItem('maria_coxinha_schedule_date');
+        if (localStorage.getItem('maria_coxinha_schedule_date')) document.getElementById('schedule-data').value = localStorage.getItem('maria_coxinha_schedule_date');
         if (localStorage.getItem('maria_coxinha_schedule_time')) document.getElementById('schedule-time').value = localStorage.getItem('maria_coxinha_schedule_time');
 
         if (localStorage.getItem('maria_coxinha_cep')) document.getElementById('cep').value = localStorage.getItem('maria_coxinha_cep');
@@ -537,7 +630,7 @@
         localStorage.setItem('maria_coxinha_name', document.getElementById('client-name').value);
         localStorage.setItem('maria_coxinha_phone', document.getElementById('client-phone').value);
         localStorage.setItem('maria_coxinha_ordertype', getSelectedRadioValue('order-type'));
-        localStorage.setItem('maria_coxinha_schedule_date', document.getElementById('schedule-date').value);
+        localStorage.setItem('maria_coxinha_schedule_date', document.getElementById('schedule-data').value);
         localStorage.setItem('maria_coxinha_schedule_time', document.getElementById('schedule-time').value);
         localStorage.setItem('maria_coxinha_cep', document.getElementById('cep').value);
         localStorage.setItem('maria_coxinha_logradouro', document.getElementById('logradouro').value);
@@ -633,18 +726,17 @@
             });
         });
 
-        // Função auxiliar para verificar se a categoria tem produtos ativos disponíveis à venda
         function temProdutosAtivos(lista) {
             return lista.some(item => item.disponivel);
         }
 
-        // Novidades
+        // Novidades (Alterado para true para usar o input direto igual a salgados)
         const secNovidades = document.getElementById('section-novidades');
         const btnNovidades = document.getElementById('btn-novidades');
         if (listaNovos.length > 0 && temProdutosAtivos(listaNovos)) {
             secNovidades.style.display = 'block';
             btnNovidades.style.display = 'block';
-            renderList(listaNovos, 'novidades-list', false);
+            renderList(listaNovos, 'novidades-list', true);
         } else {
             secNovidades.style.display = 'none';
             btnNovidades.style.display = 'none';
@@ -721,10 +813,10 @@
             scheduleContainer.style.display = 'none';
         } else if (type === 'Agendar Retirada') {
             addressContainer.style.display = 'none'; 
-            scheduleContainer.style.display = 'grid';
+            scheduleContainer.style.display = 'block';
         } else if (type === 'Agendar Entrega') {
             addressContainer.style.display = 'block'; 
-            scheduleContainer.style.display = 'grid';
+            scheduleContainer.style.display = 'block';
         } else {
             addressContainer.style.display = 'block'; 
             scheduleContainer.style.display = 'none';
@@ -899,7 +991,7 @@
         const orderType = getSelectedRadioValue('order-type');
         const payment = getSelectedRadioValue('payment');
         
-        const scheduleDate = document.getElementById('schedule-date').value;
+        const scheduleDate = document.getElementById('schedule-data').value;
         const scheduleTime = document.getElementById('schedule-time').value;
 
         const cep = document.getElementById('cep').value.trim();
@@ -929,8 +1021,8 @@
         }
 
         if ((orderType === 'Agendar Retirada' || orderType === 'Agendar Entrega') && (!scheduleDate || !scheduleTime)) {
-            showToast('Por favor, preencha a data e o horário do agendamento.');
-            if(!scheduleDate) document.getElementById('schedule-date').focus();
+            showToast('Por favor, preencha a data e o horário válido do agendamento.');
+            if(!scheduleDate) document.getElementById('schedule-data').focus();
             else document.getElementById('schedule-time').focus();
             return;
         }
@@ -1069,7 +1161,7 @@
         const orderType = getSelectedRadioValue('order-type');
         const payment = getSelectedRadioValue('payment');
         
-        const scheduleDate = document.getElementById('schedule-date').value;
+        const scheduleDate = document.getElementById('schedule-data').value;
         const scheduleTime = document.getElementById('schedule-time').value;
 
         const cep = document.getElementById('cep').value.trim();
